@@ -1,0 +1,2 @@
+opencv-python-headless==4.13.0.92
+rembg[cpu]==2.0.84
