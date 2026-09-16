@@ -45,8 +45,8 @@ If `.venv` is already installed, only the last command is needed.
 
 Choose **Background → Replace with a color**, select a preset or any custom color,
 choose an **Edge detection model**, and click **Separate person from background**.
-The local model creates an alpha
-mask (a per-pixel opacity map), then alpha matting refines uncertain boundaries.
+The local model creates an alpha mask (a per-pixel opacity map), then foreground
+color estimation removes the old background tint from uncertain boundaries.
 The browser composites the original photo over your chosen color. This is not
 generative editing: solid interior RGB comes from the full-resolution original.
 At soft boundaries, the app retains the matting solver's cleaned foreground RGB
