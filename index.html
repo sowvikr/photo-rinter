@@ -35,6 +35,8 @@
           <div id="background-options" hidden>
             <label for="background-color">Custom color</label><input id="background-color" type="color" value="#ffffff">
             <div class="swatches"><button type="button" data-color="#ffffff" aria-label="White" style="background:#fff"></button><button type="button" data-color="#d9eafa" aria-label="Light blue" style="background:#d9eafa"></button><button type="button" data-color="#4389d0" aria-label="Blue" style="background:#4389d0"></button><button type="button" data-color="#eeeeee" aria-label="Light gray" style="background:#eee"></button><button type="button" data-color="#c63636" aria-label="Red" style="background:#c63636"></button></div>
+            <label for="segmentation-quality">Edge detection model</label><select id="segmentation-quality"><option value="portrait">Portrait precision · best hair edges</option><option value="balanced">Balanced · smaller model</option><option value="fast">Fast · older model</option></select>
+            <p id="model-note" class="hint">Recommended for ID photos. The first use downloads a local model of about 973 MB.</p>
             <button type="button" id="remove-background" class="secondary bg-action" disabled>Separate person from background</button>
             <p id="background-status" class="hint" role="status" aria-live="polite">Choose a photo first.</p>
             <div id="background-refine" hidden>

@@ -57,13 +57,15 @@
     if (!photo) return;
     const token = ++generation, version = loadVersion;
     $('remove-background').disabled = true;
-    $('background-status').textContent = 'Separating the person and refining hair edges… First use can take longer while the model loads.';
+    const quality = $('segmentation-quality').value;
+    const label = $('segmentation-quality').selectedOptions[0].textContent.split('·')[0].trim();
+    $('background-status').textContent = `${label} model: separating the person and cleaning hair edges… First use downloads the model and can take several minutes.`;
     try {
       const scale = Math.min(1, 1800 / Math.max(photo.naturalWidth, photo.naturalHeight));
       const input = canvas(Math.round(photo.naturalWidth * scale), Math.round(photo.naturalHeight * scale));
       input.getContext('2d').drawImage(photo, 0, 0, input.width, input.height);
       const blob = await new Promise(resolve => input.toBlob(resolve, 'image/png'));
-      const response = await fetch('/segment', {method:'POST', headers:{'Content-Type':'image/png'}, body:blob});
+      const response = await fetch(`/segment?quality=${encodeURIComponent(quality)}`, {method:'POST', headers:{'Content-Type':'image/png'}, body:blob});
       if (!response.ok) throw new Error((await response.json()).error || 'Background processing failed.');
       const image = await createImageBitmap(await response.blob());
       if (token !== generation || version !== loadVersion) {image.close(); return;}
@@ -82,7 +84,7 @@
       ctx.putImageData(pixels, 0, 0); initial = ctx.getImageData(0, 0, mask.width, mask.height); history = [];
       $('undo-mask').disabled = true; $('background-compare').checked = false;
       $('background-refine').hidden = false;
-      $('background-status').textContent = 'Background ready. Inspect hair, ears, and shoulders; use the brush to fix any missed areas.';
+      $('background-status').textContent = `${label} result ready. Inspect hair, ears, and shoulders; switch models and run again to compare if needed.`;
       updateMask(); redraw();
     } catch (error) {
       if (token === generation && version === loadVersion) $('background-status').textContent = error.message;
@@ -130,6 +132,15 @@
   $('background-color').addEventListener('input', redraw);
   $('background-compare').addEventListener('change', redraw);
   $('edge-cleanup').addEventListener('change', redraw);
+  $('segmentation-quality').addEventListener('change', () => {
+    const notes = {
+      portrait: 'Recommended for ID photos. The first use downloads a local model of about 973 MB.',
+      balanced: 'A newer 224 MB model. Faster to download, with improved edges over the older model.',
+      fast: 'The existing 176 MB model. Fastest, but less reliable around fine hair and similar colors.'
+    };
+    $('model-note').textContent = notes[$('segmentation-quality').value];
+    if (mask) $('background-status').textContent = 'Model changed. Click Separate person from background to calculate a new result.';
+  });
   for(const id of ['edge-shift','edge-feather']) $(id).addEventListener('input', () => {updateMask(); redraw();});
   document.querySelectorAll('[data-color]').forEach(button => button.onclick = () => {$('background-color').value=button.dataset.color; redraw();});
   window.Background = {composite, reset};

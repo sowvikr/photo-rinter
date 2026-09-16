@@ -8,26 +8,46 @@ import numpy as np
 from io import BytesIO
 from threading import Lock
 from PIL import Image
+from urllib.parse import parse_qs, urlsplit
 
-_segment_session = None
+_segment_session = {"name": None, "value": None}
 _segment_lock = Lock()
 
+SEGMENT_MODELS = {
+    "portrait": "birefnet-portrait",
+    "balanced": "birefnet-general-lite",
+    "fast": "u2net_human_seg",
+}
 
-def segment_person(data):
+
+def segment_person(data, quality="portrait"):
     """Return matted foreground RGB and alpha, retaining edge decontamination."""
-    global _segment_session
+    model_name = SEGMENT_MODELS.get(quality)
+    if model_name is None:
+        raise ValueError("Unknown segmentation quality")
     with Image.open(BytesIO(data)) as source:
         if max(source.size) > 1800:
             raise ValueError("Segmentation image must be at most 1800 pixels")
         image = source.convert("RGB")
     from rembg import new_session, remove
     with _segment_lock:
-        if _segment_session is None:
-            _segment_session = new_session("u2net_human_seg", providers=["CPUExecutionProvider"])
-        cutout = remove(image, session=_segment_session, alpha_matting=True,
-                        alpha_matting_foreground_threshold=240,
-                        alpha_matting_background_threshold=10,
-                        alpha_matting_erode_size=5)
+        # Keep only one inference session resident. Portrait models are large,
+        # and caching every option can exhaust memory on ordinary laptops.
+        if _segment_session["name"] != model_name:
+            _segment_session["value"] = new_session(
+                model_name, providers=["CPUExecutionProvider"]
+            )
+            _segment_session["name"] = model_name
+        session = _segment_session["value"]
+        if quality == "fast":
+            cutout = remove(image, session=session, alpha_matting=True,
+                            alpha_matting_foreground_threshold=240,
+                            alpha_matting_background_threshold=10,
+                            alpha_matting_erode_size=5)
+        else:
+            # BiRefNet predicts a detailed 1024px matte. Preserve that matte and
+            # estimate clean edge colours without eroding hair or clothing.
+            cutout = remove(image, session=session, decontaminate=True)
     output = BytesIO()
     cutout.save(output, format="PNG")
     return output.getvalue()
@@ -69,7 +89,8 @@ if __name__ == "__main__":
             super().do_GET()
 
         def do_POST(self):
-            if self.path not in ("/detect", "/segment"):
+            parsed = urlsplit(self.path)
+            if parsed.path not in ("/detect", "/segment"):
                 self.send_error(404)
                 return
             if self.headers.get("Origin") != f"http://127.0.0.1:{args.port}":
@@ -77,12 +98,13 @@ if __name__ == "__main__":
                 return
             try:
                 length = int(self.headers.get("Content-Length", 0))
-                limit = 15 * 1024 * 1024 if self.path == "/segment" else 5 * 1024 * 1024
+                limit = 15 * 1024 * 1024 if parsed.path == "/segment" else 5 * 1024 * 1024
                 if not 0 < length <= limit:
                     raise ValueError("Invalid image size")
                 data = self.rfile.read(length)
-                if self.path == "/segment":
-                    payload = segment_person(data)
+                if parsed.path == "/segment":
+                    quality = parse_qs(parsed.query).get("quality", ["portrait"])[0]
+                    payload = segment_person(data, quality)
                     content_type = "image/png"
                 else:
                     payload = json.dumps({"faces": detect_faces(data)}).encode()

@@ -16,11 +16,14 @@ python3 -m venv .venv
 
 Open http://127.0.0.1:8000. On Windows use `.venv\Scripts\python.exe` instead.
 Dependency installation requires internet once; normal operation works offline.
-Background replacement also downloads the roughly 176 MB U2Net human-segmentation
-model on first use. To prepare it before working offline:
+Background replacement offers three local models. **Portrait precision** uses
+BiRefNet-Portrait and is recommended for ID photos and difficult hair edges; its
+first use downloads roughly 973 MB. **Balanced** uses a newer, smaller 224 MB
+BiRefNet model. **Fast** keeps the existing 176 MB U2Net model. To prepare the
+recommended portrait model before working offline:
 
 ```sh
-.venv/bin/python -c "from rembg import new_session; new_session('u2net_human_seg', providers=['CPUExecutionProvider'])"
+.venv/bin/python -c "from rembg import new_session; new_session('birefnet-portrait', providers=['CPUExecutionProvider'])"
 ```
 
 Model weights are cached locally by rembg (normally under `~/.rembg/models`).
@@ -41,7 +44,8 @@ If `.venv` is already installed, only the last command is needed.
 ### Background replacement
 
 Choose **Background → Replace with a color**, select a preset or any custom color,
-and click **Separate person from background**. The local model creates an alpha
+choose an **Edge detection model**, and click **Separate person from background**.
+The local model creates an alpha
 mask (a per-pixel opacity map), then alpha matting refines uncertain boundaries.
 The browser composites the original photo over your chosen color. This is not
 generative editing: solid interior RGB comes from the full-resolution original.
@@ -110,6 +114,8 @@ working photo. The server binds to `127.0.0.1` and does not enable CORS.
 
 Detector reference: [OpenCV cascade classifier documentation](https://docs.opencv.org/4.13.0/db/d28/tutorial_cascade_classifier.html).
 Background model and matting API: [rembg](https://github.com/danielgatis/rembg).
+The recommended portrait model is the portrait-specific BiRefNet variant listed
+by rembg; BiRefNet performs high-resolution dichotomous image segmentation.
 
 ## Tests
 
